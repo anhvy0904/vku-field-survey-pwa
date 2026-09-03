@@ -72,6 +72,10 @@ export default defineConfig(({ mode }) => {
           if (fs.existsSync(swPath)) {
             let swContent = fs.readFileSync(swPath, 'utf-8');
             swContent = swContent.replace(
+              "const CACHE_VERSION = 'v1';",
+              `const CACHE_VERSION = 'v${Date.now()}';`
+            );
+            swContent = swContent.replace(
               '/* INJECT_ASSETS_HERE */',
               assets.map(a => `'${a}'`).join(',\n  ')
             );
