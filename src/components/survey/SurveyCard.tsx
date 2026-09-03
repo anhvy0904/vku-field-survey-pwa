@@ -1,13 +1,14 @@
 import React from 'react';
 import type { SurveySubmission } from '../../types/survey';
 import { Card, CardContent } from '../ui/Card';
-import { MapPin, Clock, Star } from 'lucide-react';
+import { MapPin, Clock, Star, Trash2 } from 'lucide-react';
 
 interface SurveyCardProps {
   survey: SurveySubmission;
+  onDelete?: (id: string) => void;
 }
 
-export const SurveyCard: React.FC<SurveyCardProps> = ({ survey }) => {
+export const SurveyCard: React.FC<SurveyCardProps> = ({ survey, onDelete }) => {
   const getRatingColor = (rating: number) => {
     if (rating >= 4) return 'var(--success)';
     if (rating >= 3) return 'var(--warning)';
@@ -30,20 +31,42 @@ export const SurveyCard: React.FC<SurveyCardProps> = ({ survey }) => {
               <span>{survey.building}, Floor {survey.floor}, {survey.room}</span>
             </div>
           </div>
-          <div style={{ 
-            display: 'inline-flex', 
-            alignItems: 'center', 
-            gap: '0.375rem',
-            padding: '0.25rem 0.625rem', 
-            borderRadius: '1rem',
-            fontSize: '0.75rem',
-            fontWeight: 600,
-            backgroundColor: 'var(--bg-color)',
-            color: getRatingColor(survey.rating),
-            border: `1px solid ${getRatingColor(survey.rating)}`
-          }}>
-            <Star size={14} fill="currentColor" />
-            {survey.rating} / 5
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div style={{ 
+              display: 'inline-flex', 
+              alignItems: 'center', 
+              gap: '0.375rem',
+              padding: '0.25rem 0.625rem', 
+              borderRadius: '1rem',
+              fontSize: '0.75rem',
+              fontWeight: 600,
+              backgroundColor: 'var(--bg-color)',
+              color: getRatingColor(survey.rating),
+              border: `1px solid ${getRatingColor(survey.rating)}`
+            }}>
+              <Star size={14} fill="currentColor" />
+              {survey.rating} / 5
+            </div>
+            {onDelete && (
+              <button 
+                onClick={() => onDelete(survey.id)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--danger)',
+                  cursor: 'pointer',
+                  padding: '0.375rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: 'var(--radius-sm)',
+                  backgroundColor: 'var(--bg-color)',
+                }}
+                title="Xóa kết quả"
+              >
+                <Trash2 size={16} />
+              </button>
+            )}
           </div>
         </div>
 

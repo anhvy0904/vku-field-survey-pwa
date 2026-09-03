@@ -7,9 +7,10 @@ interface SurveyListProps {
   surveys: SurveySubmission[];
   isLoading?: boolean;
   error?: string | null;
+  onDelete?: (id: string) => void;
 }
 
-export const SurveyList: React.FC<SurveyListProps> = ({ surveys, isLoading = false, error = null }) => {
+export const SurveyList: React.FC<SurveyListProps> = ({ surveys, isLoading = false, error = null, onDelete }) => {
   if (isLoading) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '3rem 1rem', color: 'var(--text-muted)' }}>
@@ -45,7 +46,7 @@ export const SurveyList: React.FC<SurveyListProps> = ({ surveys, isLoading = fal
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
       {surveys.map(survey => (
-        <SurveyCard key={survey.id} survey={survey} />
+        <SurveyCard key={survey.id} survey={survey} onDelete={onDelete} />
       ))}
     </div>
   );

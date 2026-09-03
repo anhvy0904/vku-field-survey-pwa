@@ -91,8 +91,8 @@ export const Survey: React.FC = () => {
       if (isOnline) {
         performSync();
       } else {
-        // Register Background Sync if supported
-        if ('serviceWorker' in navigator && 'SyncManager' in window) {
+        // Register Background Sync if supported (only in production where SW is active)
+        if (import.meta.env.PROD && 'serviceWorker' in navigator && 'SyncManager' in window) {
           try {
             const registration = await navigator.serviceWorker.ready;
             // @ts-ignore - TS doesn't fully type SyncManager yet in all envs
@@ -108,6 +108,18 @@ export const Survey: React.FC = () => {
       alert("Failed to save survey locally.");
     }
   };
+
+  const handleDeleteSurvey = async (id: string) => {
+    if (!window.confirm("Bạn có chắc chắn muốn xóa kết quả khảo sát này?")) return;
+    try {
+      await surveyRepository.deleteSubmission(id);
+      setSurveys(prev => prev.filter(s => s.id !== id));
+    } catch (err) {
+      console.error("Failed to delete survey:", err);
+      alert("Đã xảy ra lỗi khi xóa kết quả khảo sát.");
+    }
+  };
+
 
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
@@ -161,6 +173,7 @@ export const Survey: React.FC = () => {
           surveys={surveys} 
           isLoading={isLoading} 
           error={error} 
+          onDelete={handleDeleteSurvey}
         />
       </section>
     </div>

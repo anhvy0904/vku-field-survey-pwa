@@ -56,7 +56,10 @@ self.addEventListener('activate', (event) => {
 // Strategy 1: Cache First (Fall back to network)
 const cacheFirst = async (request) => {
   const cache = await caches.open(CACHE_NAME);
-  const cachedResponse = await cache.match(request);
+  let cachedResponse = await cache.match(request);
+  if (!cachedResponse) {
+    cachedResponse = await cache.match(request, { ignoreSearch: true });
+  }
   if (cachedResponse) {
     return cachedResponse; // HIT -> return cached response immediately
   }
@@ -84,9 +87,34 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
+  // Bypass Vite HMR, WebSockets, and development-only resources
+  if (
+    request.headers.get('upgrade') === 'websocket' || 
+    url.searchParams.has('token') ||
+    url.pathname.startsWith('/@vite/') || 
+    url.pathname.startsWith('/@fs/') || 
+    url.pathname.startsWith('/@id/') ||
+    url.pathname.includes('node_modules')
+  ) {
+    return;
+  }
+
   // POST /api/surveys MUST NOT be cached
   if (request.method !== 'GET' || url.pathname.startsWith('/api/')) {
     event.respondWith(networkOnly(request));
+    return;
+  }
+
+  // SPA Navigation Fallback for Offline Boot
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      caches.match('/index.html').then((cachedResponse) => {
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+        return fetch(request);
+      })
+    );
     return;
   }
 
