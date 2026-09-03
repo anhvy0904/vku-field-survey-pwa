@@ -1,32 +1,20 @@
 import React from 'react';
-import type { Survey } from '../../types/survey';
+import type { SurveySubmission } from '../../types/survey';
 import { Card, CardContent } from '../ui/Card';
-import { MapPin, Info, Clock, AlertTriangle, CheckCircle, WifiOff } from 'lucide-react';
+import { MapPin, Clock, Star } from 'lucide-react';
 
 interface SurveyCardProps {
-  survey: Survey;
+  survey: SurveySubmission;
 }
 
 export const SurveyCard: React.FC<SurveyCardProps> = ({ survey }) => {
-  const getConditionColor = (condition: string) => {
-    switch (condition) {
-      case 'Good': return 'var(--success)';
-      case 'Needs Repair': return 'var(--warning)';
-      case 'Broken': return 'var(--danger)';
-      default: return 'var(--text-muted)';
-    }
+  const getRatingColor = (rating: number) => {
+    if (rating >= 4) return 'var(--success)';
+    if (rating >= 3) return 'var(--warning)';
+    return 'var(--danger)';
   };
 
-  const getConditionIcon = (condition: string) => {
-    switch (condition) {
-      case 'Good': return <CheckCircle size={16} />;
-      case 'Needs Repair': return <AlertTriangle size={16} />;
-      case 'Broken': return <WifiOff size={16} />; // Using WifiOff as a broken symbol alternative since lucide doesn't have a direct 'broken'
-      default: return <Info size={16} />;
-    }
-  };
-
-  const formattedDate = new Date(survey.createdAt).toLocaleString(undefined, {
+  const formattedDate = new Date(survey.timestamp).toLocaleString(undefined, {
     year: 'numeric', month: 'short', day: 'numeric',
     hour: '2-digit', minute: '2-digit'
   });
@@ -36,10 +24,10 @@ export const SurveyCard: React.FC<SurveyCardProps> = ({ survey }) => {
       <CardContent className="" style={{ padding: '1rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
           <div>
-            <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '1.125rem' }}>{survey.facilityType}</h4>
+            <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '1.125rem' }}>{survey.category}</h4>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
               <MapPin size={14} />
-              <span>{survey.building}, {survey.room}</span>
+              <span>{survey.building}, Floor {survey.floor}, {survey.room}</span>
             </div>
           </div>
           <div style={{ 
@@ -51,15 +39,15 @@ export const SurveyCard: React.FC<SurveyCardProps> = ({ survey }) => {
             fontSize: '0.75rem',
             fontWeight: 600,
             backgroundColor: 'var(--bg-color)',
-            color: getConditionColor(survey.condition),
-            border: `1px solid ${getConditionColor(survey.condition)}`
+            color: getRatingColor(survey.rating),
+            border: `1px solid ${getRatingColor(survey.rating)}`
           }}>
-            {getConditionIcon(survey.condition)}
-            {survey.condition}
+            <Star size={14} fill="currentColor" />
+            {survey.rating} / 5
           </div>
         </div>
 
-        {survey.description && (
+        {survey.defectNotes && (
           <p style={{ 
             fontSize: '0.875rem', 
             color: 'var(--text-main)', 
@@ -70,8 +58,14 @@ export const SurveyCard: React.FC<SurveyCardProps> = ({ survey }) => {
             borderRadius: 'var(--radius-md)',
             borderLeft: '3px solid var(--border-color)'
           }}>
-            {survey.description}
+            {survey.defectNotes}
           </p>
+        )}
+        
+        {survey.photo && (
+          <div style={{ marginTop: '0.5rem', marginBottom: '0.5rem' }}>
+             <img src={survey.photo} alt="Attached" style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }} />
+          </div>
         )}
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-color)', paddingTop: '0.75rem', marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
@@ -80,7 +74,7 @@ export const SurveyCard: React.FC<SurveyCardProps> = ({ survey }) => {
             <span>{formattedDate}</span>
           </div>
           <div>
-            {survey.syncStatus === 'pending' ? 'Sync Pending' : 'Synced'}
+            {survey.status === 'PENDING_SYNC' ? 'Sync Pending' : survey.status === 'SYNCED' ? 'Synced' : 'Failed'}
           </div>
         </div>
       </CardContent>

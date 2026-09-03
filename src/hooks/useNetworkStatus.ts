@@ -1,20 +1,22 @@
 import { useState, useEffect } from 'react';
+import { networkService } from '../services/networkService';
 
 export const useNetworkStatus = () => {
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [isOnline, setIsOnline] = useState<boolean>(true);
 
   useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
+    // Initial fetch to ensure we don't start with incorrect state
+    networkService.isOnline().then(setIsOnline);
 
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
+    const unsubscribe = networkService.subscribeToNetworkChanges((status) => {
+      setIsOnline(status);
+    });
 
     return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
+      unsubscribe();
     };
   }, []);
 
   return isOnline;
 };
+

@@ -3,14 +3,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { SurveyForm } from '../components/survey/SurveyForm';
 import { SurveyList } from '../components/survey/SurveyList';
 import { SyncStatus } from '../components/survey/SyncStatus';
-import type { Survey as SurveyType } from '../types/survey';
+import type { SurveySubmission, SurveyDraft } from '../types/survey';
 import { ClipboardList, PlusCircle, AlertTriangle } from 'lucide-react';
 import { surveyRepository } from '../db/surveyRepository';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import { syncService } from '../services/syncService';
 
 export const Survey: React.FC = () => {
-  const [surveys, setSurveys] = useState<SurveyType[]>([]);
+  const [surveys, setSurveys] = useState<SurveySubmission[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -30,21 +30,13 @@ export const Survey: React.FC = () => {
 
   // Initial load
   useEffect(() => {
+    let mounted = true;
     setIsLoading(true);
-    loadData().finally(() => setIsLoading(false));
+    loadData().finally(() => {
+      if (mounted) setIsLoading(false);
+    });
+    return () => { mounted = false; };
   }, []);
-
-  // Listen for Service Worker background sync triggers
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      if (event.data && event.data.type === 'TRIGGER_SYNC') {
-        console.log('[Survey UI] Received background sync trigger from Service Worker');
-        performSync();
-      }
-    };
-    navigator.serviceWorker?.addEventListener('message', handleMessage);
-    return () => navigator.serviceWorker?.removeEventListener('message', handleMessage);
-  }, [surveys]);
 
   const performSync = async () => {
     setIsSyncing(true);
@@ -60,33 +52,56 @@ export const Survey: React.FC = () => {
     setIsSyncing(false);
   };
 
+  // Listen for Service Worker background sync triggers
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data && event.data.type === 'TRIGGER_SYNC') {
+        console.log('[Survey UI] Received background sync trigger from Service Worker');
+        performSync();
+      }
+    };
+    navigator.serviceWorker?.addEventListener('message', handleMessage);
+    return () => navigator.serviceWorker?.removeEventListener('message', handleMessage);
+  }, []); // performSync does not need to be in deps because it uses loadData which is stable
+
   // Sync logic when coming back online or at app start if pending items exist
   useEffect(() => {
-    if (isOnline && (!prevIsOnline.current || surveys.some(s => s.syncStatus === 'pending'))) {
-      const pendingSurveys = surveys.filter(s => s.syncStatus === 'pending');
+    if (isOnline && (!prevIsOnline.current || surveys.some(s => s.status === 'PENDING_SYNC'))) {
+      const pendingSurveys = surveys.filter(s => s.status === 'PENDING_SYNC');
       if (pendingSurveys.length > 0 && !isSyncing) {
         performSync();
       }
     }
     prevIsOnline.current = isOnline;
-  }, [isOnline, surveys.length]);
+  }, [isOnline, surveys, isSyncing]);
 
-  const handleAddSurvey = async (newSurveyData: Omit<SurveyType, 'id' | 'createdAt' | 'updatedAt' | 'syncStatus'>) => {
-    const newSurvey: SurveyType = {
-      ...newSurveyData,
+  const handleAddSurvey = async (draftData: Omit<SurveyDraft, 'id' | 'updatedAt' | 'currentStep'>) => {
+    const newSurvey: SurveySubmission = {
+      ...draftData,
       id: crypto.randomUUID(),
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      syncStatus: 'pending' // Always save as pending first, then trigger sync
+      timestamp: Date.now(),
+      status: 'PENDING_SYNC'
     };
     
     try {
-      await surveyRepository.addSurvey(newSurvey);
+      await surveyRepository.enqueueSurvey(newSurvey);
       setSurveys(prev => [newSurvey, ...prev]);
       
       // If online, immediately attempt to sync this new survey
       if (isOnline) {
         performSync();
+      } else {
+        // Register Background Sync if supported
+        if ('serviceWorker' in navigator && 'SyncManager' in window) {
+          try {
+            const registration = await navigator.serviceWorker.ready;
+            // @ts-ignore - TS doesn't fully type SyncManager yet in all envs
+            await registration.sync.register('survey-sync');
+            console.log('[Survey UI] Background Sync registered: survey-sync');
+          } catch (syncErr) {
+            console.error('[Survey UI] Background Sync registration failed:', syncErr);
+          }
+        }
       }
     } catch (err) {
       console.error("Failed to save survey:", err);

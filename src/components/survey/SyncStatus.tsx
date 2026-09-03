@@ -1,11 +1,11 @@
 import React from 'react';
-import type { Survey } from '../../types/survey';
+import type { SurveySubmission } from '../../types/survey';
 import { useNetworkStatus } from '../../hooks/useNetworkStatus';
 import { CloudOff, RefreshCw, AlertCircle } from 'lucide-react';
 import { Button } from '../ui/Button';
 
 interface SyncStatusProps {
-  surveys: Survey[];
+  surveys: SurveySubmission[];
   isSyncing: boolean;
   onSync: () => void;
   syncError?: string | null;
@@ -14,8 +14,8 @@ interface SyncStatusProps {
 export const SyncStatus: React.FC<SyncStatusProps> = ({ surveys, isSyncing, onSync, syncError }) => {
   const isOnline = useNetworkStatus();
   
-  const pendingCount = surveys.filter(s => s.syncStatus === 'pending').length;
-  const syncedCount = surveys.filter(s => s.syncStatus === 'synced').length;
+  const pendingCount = surveys.filter(s => s.status === 'PENDING_SYNC').length;
+  const syncedCount = surveys.filter(s => s.status === 'SYNCED').length;
   
   const lastSyncTimeStr = localStorage.getItem('lastSyncTime');
   const lastSyncTime = lastSyncTimeStr ? new Date(parseInt(lastSyncTimeStr)).toLocaleTimeString() : 'Never';

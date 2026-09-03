@@ -1,5 +1,5 @@
 const DB_NAME = 'vku-field-survey';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Bumped to 2 for Phase 4 schema
 
 export const openDB = (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
@@ -19,15 +19,24 @@ export const openDB = (): Promise<IDBDatabase> => {
       resolve(request.result);
     };
 
-    request.onupgradeneeded = () => {
+    request.onupgradeneeded = (event: IDBVersionChangeEvent) => {
       const db = request.result;
       
-      if (!db.objectStoreNames.contains('surveys')) {
-        const store = db.createObjectStore('surveys', { keyPath: 'id' });
-        
-        // Create indexes to search by specific fields
-        store.createIndex('syncStatus', 'syncStatus', { unique: false });
-        store.createIndex('createdAt', 'createdAt', { unique: false });
+      // Delete old schema if upgrading from v1
+      if (event.oldVersion < 2) {
+        if (db.objectStoreNames.contains('surveys')) {
+          db.deleteObjectStore('surveys');
+        }
+      }
+
+      if (!db.objectStoreNames.contains('submissions')) {
+        const store = db.createObjectStore('submissions', { keyPath: 'id' });
+        store.createIndex('status', 'status', { unique: false });
+        store.createIndex('timestamp', 'timestamp', { unique: false });
+      }
+
+      if (!db.objectStoreNames.contains('drafts')) {
+        db.createObjectStore('drafts', { keyPath: 'id' });
       }
     };
   });

@@ -1,5 +1,6 @@
 import { surveyRepository } from '../db/surveyRepository';
 import { api } from './api';
+import { networkService } from './networkService';
 
 let isSyncing = false;
 let syncRequested = false; // Tracks if a new sync was requested while already syncing
@@ -8,7 +9,8 @@ const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export const syncService = {
   async syncAll(): Promise<{ success: boolean; syncedCount: number; error?: string }> {
-    if (!navigator.onLine) {
+    const online = await networkService.isOnline();
+    if (!online) {
       console.log('[Sync Service] Network is offline. Skipping sync.');
       return { success: false, syncedCount: 0, error: 'Network offline' };
     }
@@ -34,46 +36,52 @@ export const syncService = {
           continue; // Breaks the do-while if nothing to sync and syncRequested is false
         }
 
-        console.log(`[Sync Service] Attempting to sync ${pendingSurveys.length} surveys...`);
+        console.log(`[Sync Service] Attempting to sync ${pendingSurveys.length} surveys sequentially...`);
 
-        let attempts = 0;
-        const maxAttempts = 3;
-        let success = false;
-        let lastError = '';
-        let result: { success: boolean; syncedIds?: string[]; error?: string; status?: number } | undefined;
+        for (const survey of pendingSurveys) {
+          let attempts = 0;
+          const maxAttempts = 3;
+          let success = false;
+          let abortQueue = false;
 
-        while (attempts < maxAttempts && !success) {
-          attempts++;
-          result = await api.syncSurveys(pendingSurveys);
+          while (attempts < maxAttempts && !success && !abortQueue) {
+            attempts++;
+            const result = await api.syncSurvey(survey);
 
-          if (result?.success && result.syncedIds) {
-            success = true;
-            await Promise.all(
-              pendingSurveys
-                .filter(s => result?.syncedIds?.includes(s.id))
-                .map(async (survey) => {
-                  survey.syncStatus = 'synced';
-                  await surveyRepository.updateSurvey(survey);
-                })
-            );
-          } else {
-            lastError = result?.error || 'Unknown error';
-            console.warn(`[Sync Service] Sync attempt ${attempts} failed: ${lastError}`);
-            if (attempts < maxAttempts) {
-              await wait(Math.pow(2, attempts - 1) * 1000);
+            if (result.success) {
+              success = true;
+              await surveyRepository.markAsSynced(survey.id);
+              totalSyncedCount++;
+            } else {
+              const status = result.status || 0;
+              console.warn(`[Sync Service] Sync attempt ${attempts} failed for ${survey.id}: ${result.error || 'Unknown error'} (HTTP ${status})`);
+              
+              if (status >= 400 && status < 500) {
+                // Permanent error (e.g., 400 Bad Request, 404 Not Found)
+                console.error(`[Sync Service] Permanent error. Marking ${survey.id} as FAILED.`);
+                await surveyRepository.markAsFailed(survey.id);
+                // Do not abort queue for other surveys, just break this retry loop
+                break;
+              } else {
+                // Transient error (5xx or network failure)
+                if (attempts < maxAttempts) {
+                  await wait(Math.pow(2, attempts - 1) * 1000); // Exponential backoff
+                } else {
+                  console.error(`[Sync Service] Max retries reached for ${survey.id}. Aborting sync queue.`);
+                  abortQueue = true;
+                  globalSuccess = false;
+                  globalError = result.error || 'Network error';
+                }
+              }
             }
+          }
+
+          if (abortQueue) {
+            break; // Break the sequential for...of loop
           }
         }
 
-        if (success) {
-          totalSyncedCount += pendingSurveys.length;
-        } else {
-          globalSuccess = false;
-          globalError = lastError;
-          break; // If one batch fails completely, we stop the loop and let it retry later
-        }
-
-      } while (syncRequested);
+      } while (syncRequested && globalSuccess);
 
       if (globalSuccess) {
         console.log(`[Sync Service] Successfully synced ${totalSyncedCount} surveys total.`);
@@ -82,7 +90,7 @@ export const syncService = {
         }
         return { success: true, syncedCount: totalSyncedCount };
       } else {
-        console.error(`[Sync Service] Sync loop failed. Leaving remaining as pending.`);
+        console.error(`[Sync Service] Sync queue aborted. Some surveys remain pending.`);
         return { success: false, syncedCount: totalSyncedCount, error: globalError };
       }
 

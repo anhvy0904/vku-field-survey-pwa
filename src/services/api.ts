@@ -1,26 +1,24 @@
-import type { Survey } from '../types/survey';
+import type { SurveySubmission } from '../types/survey';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 export const api = {
   /**
-   * Synchronizes an array of pending surveys with the backend.
+   * Synchronizes a single pending survey with the backend.
    */
-  async syncSurveys(surveys: Survey[]): Promise<{ success: boolean; syncedIds?: string[]; error?: string; status?: number }> {
+  async syncSurvey(survey: SurveySubmission): Promise<{ success: boolean; error?: string; status?: number }> {
     try {
       const response = await fetch(`${API_BASE_URL}/surveys`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ surveys })
+        body: JSON.stringify({ surveys: [survey] })
       });
 
       if (response.ok) { // 2xx
-        const data = await response.json();
         return {
           success: true,
-          syncedIds: data.syncedIds,
           status: response.status
         };
       }
@@ -41,7 +39,7 @@ export const api = {
       };
 
     } catch (error: any) {
-      console.error('[API Service] Failed to sync surveys:', error);
+      console.error('[API Service] Failed to sync survey:', error);
       return {
         success: false,
         error: error.message || 'Unknown network error'

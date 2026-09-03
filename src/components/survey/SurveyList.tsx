@@ -1,10 +1,10 @@
 import React from 'react';
-import type { Survey } from '../../types/survey';
+import type { SurveySubmission } from '../../types/survey';
 import { SurveyCard } from './SurveyCard';
 import { ClipboardList, Loader2, AlertCircle } from 'lucide-react';
 
 interface SurveyListProps {
-  surveys: Survey[];
+  surveys: SurveySubmission[];
   isLoading?: boolean;
   error?: string | null;
 }

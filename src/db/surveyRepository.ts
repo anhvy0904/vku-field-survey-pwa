@@ -1,66 +1,11 @@
 import { openDB } from './database';
-import type { Survey } from '../types/survey';
+import type { SurveySubmission } from '../types/survey';
 
-const STORE_NAME = 'surveys';
+const STORE_NAME = 'submissions';
 
 export const surveyRepository = {
   
-  async addSurvey(survey: Survey): Promise<void> {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(STORE_NAME, 'readwrite');
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.add(survey);
-
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-      
-      transaction.oncomplete = () => db.close();
-    });
-  },
-
-  async getSurvey(id: string): Promise<Survey | undefined> {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(STORE_NAME, 'readonly');
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.get(id);
-
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-      
-      transaction.oncomplete = () => db.close();
-    });
-  },
-
-  async getAllSurveys(): Promise<Survey[]> {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(STORE_NAME, 'readonly');
-      const store = transaction.objectStore(STORE_NAME);
-      
-      // Creating an index request to order by createdAt descending (most recent first)
-      const index = store.index('createdAt');
-      const request = index.openCursor(null, 'prev');
-      const surveys: Survey[] = [];
-
-      request.onsuccess = (event) => {
-        const cursor = (event.target as IDBRequest).result;
-        if (cursor) {
-          surveys.push(cursor.value);
-          cursor.continue();
-        } else {
-          resolve(surveys);
-        }
-      };
-
-      request.onerror = () => reject(request.error);
-      
-      transaction.oncomplete = () => db.close();
-    });
-  },
-
-  async updateSurvey(survey: Survey): Promise<void> {
+  async enqueueSurvey(survey: SurveySubmission): Promise<void> {
     const db = await openDB();
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(STORE_NAME, 'readwrite');
@@ -74,7 +19,110 @@ export const surveyRepository = {
     });
   },
 
-  async deleteSurvey(id: string): Promise<void> {
+  async getSurvey(id: string): Promise<SurveySubmission | undefined> {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_NAME, 'readonly');
+      const store = transaction.objectStore(STORE_NAME);
+      const request = store.get(id);
+
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+      
+      transaction.oncomplete = () => db.close();
+    });
+  },
+
+  async getAllSurveys(): Promise<SurveySubmission[]> {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_NAME, 'readonly');
+      const store = transaction.objectStore(STORE_NAME);
+      
+      const index = store.index('timestamp');
+      const request = index.openCursor(null, 'prev');
+      const submissions: SurveySubmission[] = [];
+
+      request.onsuccess = (event) => {
+        const cursor = (event.target as IDBRequest).result;
+        if (cursor) {
+          submissions.push(cursor.value);
+          cursor.continue();
+        } else {
+          resolve(submissions);
+        }
+      };
+
+      request.onerror = () => reject(request.error);
+      
+      transaction.oncomplete = () => db.close();
+    });
+  },
+
+  async getPendingSurveys(): Promise<SurveySubmission[]> {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_NAME, 'readonly');
+      const store = transaction.objectStore(STORE_NAME);
+      const index = store.index('status');
+      const request = index.getAll('PENDING_SYNC');
+
+      request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => reject(request.error);
+      
+      transaction.oncomplete = () => db.close();
+    });
+  },
+
+  async markAsSynced(id: string): Promise<void> {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_NAME, 'readwrite');
+      const store = transaction.objectStore(STORE_NAME);
+      const getRequest = store.get(id);
+
+      getRequest.onsuccess = () => {
+        const submission = getRequest.result as SurveySubmission;
+        if (submission) {
+          submission.status = 'SYNCED';
+          const updateRequest = store.put(submission);
+          updateRequest.onsuccess = () => resolve();
+          updateRequest.onerror = () => reject(updateRequest.error);
+        } else {
+          reject(new Error('Submission not found'));
+        }
+      };
+      getRequest.onerror = () => reject(getRequest.error);
+      
+      transaction.oncomplete = () => db.close();
+    });
+  },
+
+  async markAsFailed(id: string): Promise<void> {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_NAME, 'readwrite');
+      const store = transaction.objectStore(STORE_NAME);
+      const getRequest = store.get(id);
+
+      getRequest.onsuccess = () => {
+        const submission = getRequest.result as SurveySubmission;
+        if (submission) {
+          submission.status = 'FAILED';
+          const updateRequest = store.put(submission);
+          updateRequest.onsuccess = () => resolve();
+          updateRequest.onerror = () => reject(updateRequest.error);
+        } else {
+          reject(new Error('Submission not found'));
+        }
+      };
+      getRequest.onerror = () => reject(getRequest.error);
+      
+      transaction.oncomplete = () => db.close();
+    });
+  },
+
+  async deleteSubmission(id: string): Promise<void> {
     const db = await openDB();
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(STORE_NAME, 'readwrite');
@@ -82,21 +130,6 @@ export const surveyRepository = {
       const request = store.delete(id);
 
       request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-      
-      transaction.oncomplete = () => db.close();
-    });
-  },
-
-  async getPendingSurveys(): Promise<Survey[]> {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(STORE_NAME, 'readonly');
-      const store = transaction.objectStore(STORE_NAME);
-      const index = store.index('syncStatus');
-      const request = index.getAll('pending');
-
-      request.onsuccess = () => resolve(request.result || []);
       request.onerror = () => reject(request.error);
       
       transaction.oncomplete = () => db.close();
