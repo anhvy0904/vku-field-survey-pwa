@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import type { SurveyDraft, SurveyCategory } from '../../types/survey';
+import type { SurveyDraft, SurveyCategory, LocationStatus } from '../../types/survey';
 import { Button } from '../ui/Button';
-import { Save, AlertCircle, ArrowLeft, ArrowRight, Camera } from 'lucide-react';
+import { Save, AlertCircle, ArrowLeft, ArrowRight, Camera, MapPin } from 'lucide-react';
 import { draftRepository } from '../../db/draftRepository';
 import { cameraService } from '../../services/cameraService';
+import { locationService } from '../../services/locationService';
 import { Capacitor } from '@capacitor/core';
 interface SurveyFormProps {
   onSubmit: (survey: Omit<SurveyDraft, 'id' | 'updatedAt' | 'currentStep'>) => void;
@@ -22,6 +23,8 @@ const InputError = ({ message }: { message?: string }) => {
 export const SurveyForm: React.FC<SurveyFormProps> = ({ onSubmit }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [locationStatus, setLocationStatus] = useState<LocationStatus>('idle');
+  
   const [formData, setFormData] = useState<SurveyDraft>(() => ({
     id: 'current-draft',
     building: '',
@@ -49,6 +52,25 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({ onSubmit }) => {
     }
   };
 
+  const handleFetchLocation = async () => {
+    setLocationStatus('fetching');
+    const result = await locationService.getCurrentPosition();
+    
+    setFormData(prev => ({
+      ...prev,
+      latitude: result.latitude,
+      longitude: result.longitude,
+      accuracy: result.accuracy,
+      altitude: result.altitude,
+      heading: result.heading,
+      speed: result.speed,
+      locationCapturedAt: result.capturedAt,
+      locationStatus: result.locationStatus
+    }));
+
+    setLocationStatus(result.locationStatus);
+  };
+
   // Load draft on mount
   useEffect(() => {
     if (initialLoadDone.current) return;
@@ -58,6 +80,7 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({ onSubmit }) => {
       if (draft) {
         setFormData(draft);
         if (draft.currentStep) setCurrentStep(draft.currentStep);
+        if (draft.latitude && draft.longitude) setLocationStatus('captured');
       }
       setIsLoaded(true);
     }).catch(err => {
@@ -171,6 +194,7 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({ onSubmit }) => {
         updatedAt: Date.now(),
         currentStep: 1
       });
+      setLocationStatus('idle');
       setCurrentStep(1);
       setIsSubmitting(false);
     }, 400);
@@ -221,6 +245,41 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({ onSubmit }) => {
             <label htmlFor="room" style={labelStyle}>Room # <span style={{ color: 'var(--danger)' }}>*</span></label>
             <input type="text" id="room" name="room" value={formData.room} onChange={handleChange} style={inputStyle(!!errors.room)} placeholder="e.g. A-101" />
             <InputError message={errors.room} />
+          </div>
+          
+          <div style={{ padding: '1rem', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--bg-color)', border: '1px solid var(--border-color)', marginTop: '0.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 500 }}>
+                <MapPin size={18} color={locationStatus === 'captured' ? 'var(--primary)' : 'var(--text-muted)'} />
+                GPS Location
+              </div>
+              <Button type="button" onClick={handleFetchLocation} disabled={locationStatus === 'fetching'} style={{ padding: '0.25rem 0.75rem', fontSize: '0.75rem', backgroundColor: 'white', color: 'var(--primary)', border: '1px solid var(--primary)' }}>
+                {locationStatus === 'fetching' ? 'Fetching...' : locationStatus === 'captured' ? 'Update' : 'Get Location'}
+              </Button>
+            </div>
+            
+            <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+              {locationStatus === 'captured' ? (
+                (typeof formData.latitude === 'number' && typeof formData.longitude === 'number') ? (
+                  <span style={{ color: 'var(--primary)' }}>
+                    📍 {formData.latitude.toFixed(5)}, {formData.longitude.toFixed(5)}
+                    {typeof formData.accuracy === 'number' && (
+                      <span style={{ opacity: 0.7, fontSize: '0.75rem' }}> (±{Math.round(formData.accuracy)}m)</span>
+                    )}
+                  </span>
+                ) : (
+                  <span style={{ color: 'var(--warning)' }}>⚠️ Coordinates unavailable.</span>
+                )
+              ) : locationStatus === 'denied' ? (
+                <span style={{ color: 'var(--danger)' }}>❌ Permission denied.</span>
+              ) : locationStatus === 'timeout' ? (
+                <span style={{ color: 'var(--warning)' }}>⚠️ Location request timed out.</span>
+              ) : locationStatus === 'unavailable' ? (
+                <span style={{ color: 'var(--danger)' }}>❌ Location unavailable.</span>
+              ) : (
+                <span>No location captured yet.</span>
+              )}
+            </div>
           </div>
         </div>
       )}
