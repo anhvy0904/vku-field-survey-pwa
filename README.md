@@ -10,7 +10,8 @@ VKU Field Survey is a robust, offline-first Progressive Web Application (PWA) an
 - Background Sync
 - Service Worker
 - Cache-First App Shell (with automated cache busting)
-- Camera
+- Camera & Native Image Compression
+- **GPS/Geolocation Tracking (Offline capable)**
 - Network monitoring
 - Capacitor Android APK
 - **Google Sheets Integration (via Apps Script & Vercel Proxy)**
@@ -67,22 +68,18 @@ Unlike a web browser, a mobile app does not run on the `vercel.app` domain, so r
 1. Create a `.env.production` file.
 2. Add your Vercel URL: `VITE_API_URL=https://your-project.vercel.app/api`
 
-Then proceed with building:
+### Building the APK
+We have configured a 1-click build script that automatically compiles the React web assets, synchronizes them to the native Android environment, and uses Gradle to package the `.apk`.
 
-1. Build the production web assets:
+Run the following command:
 ```bash
-npm run build
+npm run build:android
 ```
 
-2. Sync the compiled assets and Capacitor configuration into the native Android folder:
-```bash
-npx cap sync
-```
+Once the build finishes successfully, your generated APK file will be located at:
+`android/app/build/outputs/apk/debug/app-debug.apk`
 
-3. Open Android Studio to compile the final `.apk` or run on an emulator:
-```bash
-npx cap open android
-```
+*(Note: You can easily drag and drop this APK into an emulator, send it via Zalo/Telegram, or upload it to Google Drive to install on physical Android devices).*
 
 ## Offline Testing
 
