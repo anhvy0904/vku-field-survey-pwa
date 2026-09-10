@@ -1,7 +1,7 @@
 export type SyncStatus = 'PENDING_SYNC' | 'SYNCED' | 'FAILED';
 export type SurveyCategory = 'Hardware' | 'Projector' | 'AC' | 'Electrical' | 'Furniture' | '';
 
-export type LocationStatus = 'captured' | 'unavailable' | 'denied' | 'timeout' | 'idle' | 'fetching';
+export type LocationStatus = 'captured' | 'unavailable' | 'denied' | 'timeout' | 'idle' | 'fetching' | 'blocked';
 
 export interface SurveyDraft {
   id: string; // usually a single ID like 'current-draft' for a single active draft

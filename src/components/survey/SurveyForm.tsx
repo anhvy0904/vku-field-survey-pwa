@@ -61,17 +61,24 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({ onSubmit }) => {
     setLocationStatus('fetching');
     const result = await locationService.getCurrentPosition();
     
-    setFormData(prev => ({
-      ...prev,
-      latitude: result.latitude,
-      longitude: result.longitude,
-      accuracy: result.accuracy,
-      altitude: result.altitude,
-      heading: result.heading,
-      speed: result.speed,
-      locationCapturedAt: result.capturedAt,
-      locationStatus: result.locationStatus
-    }));
+    if (result.locationStatus === 'captured') {
+      setFormData(prev => ({
+        ...prev,
+        latitude: result.latitude,
+        longitude: result.longitude,
+        accuracy: result.accuracy,
+        altitude: result.altitude,
+        heading: result.heading,
+        speed: result.speed,
+        locationCapturedAt: result.capturedAt,
+        locationStatus: 'captured'
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        locationStatus: result.locationStatus
+      }));
+    }
 
     setLocationStatus(result.locationStatus);
   };
@@ -338,12 +345,21 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({ onSubmit }) => {
                 </div>
               ) : locationStatus === 'fetching' ? (
                 <div style={{ color: 'var(--primary)' }}>Acquiring location...</div>
+              ) : locationStatus === 'blocked' ? (
+                <div style={{ color: 'var(--warning)', backgroundColor: 'var(--bg-color)', padding: '0.75rem', borderRadius: 'var(--radius-sm)' }}>
+                  <strong>Android could not display the Location permission dialog.</strong><br/>
+                  Close floating bubbles, screen recorders, or other overlay apps and try again.
+                </div>
               ) : locationStatus === 'denied' ? (
-                <div style={{ color: 'var(--danger)' }}>Permission denied. Check device settings.</div>
+                <div style={{ color: 'var(--danger)', backgroundColor: 'var(--bg-color)', padding: '0.75rem', borderRadius: 'var(--radius-sm)' }}>
+                  <strong>Location permission denied.</strong><br/>
+                  Please allow Location permission to capture GPS. If permanently denied, go to:<br/>
+                  <span style={{ fontFamily: 'monospace', fontSize: '0.75rem', display: 'block', marginTop: '0.25rem', opacity: 0.8 }}>Settings → Apps → VKU Field Survey → Permissions</span>
+                </div>
               ) : locationStatus === 'timeout' ? (
-                <div style={{ color: 'var(--warning)' }}>Request timed out. Please try again.</div>
+                <div style={{ color: 'var(--warning)' }}>Unable to obtain GPS location within the allowed time. Please try again.</div>
               ) : locationStatus === 'unavailable' ? (
-                <div style={{ color: 'var(--danger)' }}>Location unavailable on this device.</div>
+                <div style={{ color: 'var(--danger)' }}>Location services appear to be disabled. Please enable Location/GPS on your device and try again.</div>
               ) : (
                 <div style={{ color: 'var(--text-muted)' }}>Not captured yet.</div>
               )}

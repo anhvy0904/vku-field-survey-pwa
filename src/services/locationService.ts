@@ -1,6 +1,7 @@
 import { Geolocation } from '@capacitor/geolocation';
 import type { Position } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
+import type { LocationStatus } from '../types/survey';
 
 export interface LocationResult {
   latitude?: number;
@@ -10,7 +11,7 @@ export interface LocationResult {
   heading?: number | null;
   speed?: number | null;
   capturedAt?: number;
-  locationStatus: 'captured' | 'unavailable' | 'denied' | 'timeout';
+  locationStatus: LocationStatus;
 }
 
 export const locationService = {
@@ -31,8 +32,8 @@ export const locationService = {
       // Fetch the location
       const position: Position = await Geolocation.getCurrentPosition({
         enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 3000
+        timeout: 15000,
+        maximumAge: 0
       });
 
       return {
@@ -49,10 +50,22 @@ export const locationService = {
       console.error('[Location Service] Error fetching location:', error.message || error);
       
       const errorMessage = (error.message || '').toLowerCase();
+      
+      // Android Overlay / Bubble security feature
+      if (errorMessage.includes('overlay') || errorMessage.includes('bubble') || errorMessage.includes('appear on top')) {
+        return { locationStatus: 'blocked' };
+      }
+
       if (errorMessage.includes('denied') || errorMessage.includes('permission')) {
         return { locationStatus: 'denied' };
-      } else if (errorMessage.includes('timeout')) {
+      } 
+      
+      if (errorMessage.includes('timeout')) {
         return { locationStatus: 'timeout' };
+      }
+      
+      if (errorMessage.includes('location disabled') || errorMessage.includes('location unavailable') || errorMessage.includes('provider')) {
+        return { locationStatus: 'unavailable' };
       }
       
       return { locationStatus: 'unavailable' };
