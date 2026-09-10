@@ -11,10 +11,12 @@ export const NetworkStatus: React.FC = () => {
         display: 'flex', 
         alignItems: 'center', 
         gap: '0.375rem', 
-        backgroundColor: 'rgba(16, 185, 129, 0.2)', 
-        color: '#a7f3d0', // Light green
+        backgroundColor: 'rgba(16, 185, 129, 0.1)', 
+        color: 'var(--success)', 
         padding: '0.25rem 0.625rem', 
-        borderRadius: 'var(--radius-md)' 
+        borderRadius: '2rem',
+        fontSize: '0.75rem',
+        fontWeight: 600
       }}>
         <Wifi size={14} /> Online
       </span>
@@ -26,10 +28,12 @@ export const NetworkStatus: React.FC = () => {
       display: 'flex', 
       alignItems: 'center', 
       gap: '0.375rem', 
-      backgroundColor: 'rgba(239, 68, 68, 0.2)', 
-      color: '#fca5a5', // Light red
+      backgroundColor: 'rgba(239, 68, 68, 0.1)', 
+      color: 'var(--danger)', 
       padding: '0.25rem 0.625rem', 
-      borderRadius: 'var(--radius-md)',
+      borderRadius: '2rem',
+      fontSize: '0.75rem',
+      fontWeight: 600,
       animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
     }}>
       <WifiOff size={14} /> Offline

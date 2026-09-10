@@ -15,10 +15,12 @@ VKU Field Survey is a robust, offline-first Progressive Web Application (PWA) an
 - Network monitoring
 - Capacitor Android APK
 - **Google Sheets Integration (via Apps Script & Vercel Proxy)**
+- **Modern Mobile-First UI/UX** (Responsive bottom nav, multi-step wizards)
+- **Global Survey Context** (Real-time sync queue management)
 
 ## Architecture
 
-- **React**: The core UI is powered by React (Vite build), providing dynamic multi-step form rendering and state management.
+- **React Context**: The core UI state and synchronization logic is decoupled into `SurveyContext`, providing global access to drafts and offline queues across all screens.
 - **Service Worker**: A custom service worker script intercepts network requests, with explicit bypasses for Vite HMR and development resources.
 - **Cache API**: The Service Worker utilizes a strictly defined `Cache-First` strategy for all App Shell static assets, ensuring rapid, network-independent cold boots. Cache versions are dynamically generated at build time to prevent "white screen" bugs during deployments.
 - **IndexedDB**: The `idb` wrapper manages a robust versioned database schema, hosting `drafts` (for real-time form autosaves) and `submissions` (for the offline queue).
